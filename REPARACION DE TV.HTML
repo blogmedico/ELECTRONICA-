@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico TV LCD/LED</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #0f172a;
+        color: white;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .container {
+        max-width: 800px;
+        width: 100%;
+        background: #1e293b;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.4);
+        text-align: center;
+    }
+
+    h1 {
+        margin-bottom: 20px;
+    }
+
+    .question {
+        font-size: 22px;
+        margin-bottom: 20px;
+    }
+
+    .buttons button {
+        padding: 12px 20px;
+        margin: 10px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        background: #22c55e;
+        color: white;
+        transition: 0.3s;
+    }
+
+    .buttons button:hover {
+        background: #16a34a;
+    }
+
+    .result {
+        margin-top: 20px;
+        padding: 20px;
+        background: #334155;
+        border-radius: 10px;
+        display: none;
+    }
+
+    .restart {
+        margin-top: 20px;
+        background: #3b82f6;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Diagnóstico Interactivo TV LCD/LED</h1>
+    <div id="app"></div>
+</div>
+
+<script>
+const steps = {
+    start: {
+        question: "¿Enciende el LED de Standby?",
+        yes: "arranca",
+        no: "fuente"
+    },
+
+    fuente: {
+        result: `
+        <h2>Falla en Fuente de Alimentación</h2>
+        <p>Revisar:</p>
+        <ul>
+            <li>Fusible</li>
+            <li>Rectificador</li>
+            <li>Capacitor primario</li>
+            <li>PWM</li>
+            <li>5V Standby</li>
+        </ul>
+        `
+    },
+
+    arranca: {
+        question: "¿El TV sale de Standby?",
+        yes: "imagen",
+        no: "mainboard"
+    },
+
+    mainboard: {
+        result: `
+        <h2>Falla en Mainboard</h2>
+        <ul>
+            <li>Reguladores 3.3V</li>
+            <li>EEPROM</li>
+            <li>Microprocesador</li>
+            <li>Firmware</li>
+        </ul>
+        `
+    },
+
+    imagen: {
+        question: "¿Hay imagen en pantalla?",
+        yes: "ok",
+        no: "sonido"
+    },
+
+    sonido: {
+        question: "¿Hay sonido?",
+        yes: "backlight",
+        no: "video"
+    },
+
+    backlight: {
+        result: `
+        <h2>Falla en Backlight</h2>
+        <ul>
+            <li>BL_ON</li>
+            <li>Driver LED</li>
+            <li>Tiras LED</li>
+            <li>Inverter</li>
+        </ul>
+        `
+    },
+
+    video: {
+        result: `
+        <h2>Falla en Procesamiento de Video</h2>
+        <ul>
+            <li>Mainboard</li>
+            <li>LVDS</li>
+            <li>T-CON</li>
+        </ul>
+        `
+    },
+
+    ok: {
+        result: `<h2>TV funcionando correctamente</h2>`
+    }
+};
+
+function renderStep(step) {
+    const app = document.getElementById('app');
+    const current = steps[step];
+
+    if (current.question) {
+        app.innerHTML = `
+            <div class="question">${current.question}</div>
+            <div class="buttons">
+                <button onclick="renderStep('${current.yes}')">SI</button>
+                <button onclick="renderStep('${current.no}')">NO</button>
+            </div>
+        `;
+    }
+
+    if (current.result) {
+        app.innerHTML = `
+            <div class="result" style="display:block;">
+                ${current.result}
+                <br>
+                <button class="restart" onclick="renderStep('start')">Reiniciar</button>
+            </div>
+        `;
+    }
+}
+
+renderStep('start');
+</script>
+
+</body>
+</html>
