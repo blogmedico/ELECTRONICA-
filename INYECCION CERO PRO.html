@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulador Solar Pro - Inyección Cero & Flujo Continuo</title>
+    <style>
+        :root {
+            --solar-blue: #1a237e;
+            --grid-green: #2ecc71;
+            --house-blue: #3498db;
+            --accent-yellow: #f1c40f;
+            --bg-color: #f0f4f7;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            background-color: var(--bg-color); 
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        .main-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.1);
+            padding: 30px;
+            max-width: 1100px;
+            width: 100%;
+            border: 1px solid #e1e8ed;
+        }
+
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: var(--solar-blue); margin: 0; font-size: 1.8rem; }
+        .header p { color: #546e7a; margin-top: 5px; }
+
+        .controls { 
+            display: flex; justify-content: center; gap: 15px; 
+            margin-bottom: 25px; flex-wrap: wrap; 
+        }
+
+        button {
+            padding: 12px 24px; border: none; border-radius: 12px;
+            font-weight: bold; cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.9rem;
+        }
+
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        .btn-zero { background: var(--accent-yellow); color: #000; }
+        .btn-mixed { background: var(--grid-green); color: white; }
+        .btn-night { background: var(--solar-blue); color: white; }
+
+        /* SVG Styling */
+        #solar-sim {
+            width: 100%; height: auto;
+            border-radius: 15px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+            border: 1px solid #cfd8dc;
+        }
+
+        /* ANIMACIÓN FLUIDA (Sin saltos) */
+        /* La clave es que stroke-dashoffset sea igual al stroke-dasharray para un loop perfecto */
+        .flow-line {
+            stroke-dasharray: 15, 15;
+            transition: stroke 0.5s ease;
+        }
+
+        .anim-forward { animation: dash-forward 1s linear infinite; }
+        .anim-reverse { animation: dash-reverse 1s linear infinite; }
+
+        @keyframes dash-forward {
+            from { stroke-dashoffset: 30; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes dash-reverse {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: 30; }
+        }
+
+        .info-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px; margin-top: 30px;
+        }
+
+        .card-info {
+            padding: 15px; border-radius: 12px;
+            background: #f8fafc; border-left: 6px solid var(--solar-blue);
+            font-size: 0.85rem; line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="header">
+        <h1>Fotovoltaica con Sistema de inyeccion Cero.</h1>
+        <h1>Montilla-Tech--Consultas y presupuestos al 2613838951</h1>
+        <p>Sistema de 4.375 kW con Tecnología de Microinversores [6, 7]</p>
+    </div>
+
+    <div class="controls">
+        <button class="btn-zero" onclick="setMode('zero')">☀️ Inyección Cero (Día)</button>
+        <button class="btn-mixed" onclick="setMode('mixed')">🌤️ Mixto (Solar + Red)</button>
+        <button class="btn-night" onclick="setMode('night')">🌙 Modo Noche</button>
+    </div>
+
+    <svg id="solar-sim" viewBox="0 0 1000 500">
+        <!-- Fondo Decorativo (Patrón de Celda Solar) [5] -->
+        <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <rect width="40" height="40" fill="none" stroke="#f1f1f1" stroke-width="1"/>
+            </pattern>
+        </defs>
+        <rect width="1000" height="500" fill="url(#grid)" />
+
+        <!-- AREA GENERACIÓN: 7 PANELES [7, 8] -->
+        <rect x="30" y="100" width="120" height="220" fill="#1a237e" rx="8"/>
+        <path d="M30 140 H150 M30 180 H150 M30 220 H150 M30 260 H150 M30 300 H150 M90 100 V320" stroke="white" stroke-opacity="0.2"/>
+        <text x="35" y="85" font-weight="bold" fill="#1a237e">7 Paneles 625Wp</text>
+        <text x="55" y="340" font-size="12" fill="#546e7a">Silicio Monocristalino [4]</text>
+
+        <!-- BUS DE CA (TRUNK CABLE) [9] -->
+        <path id="pathSolar" class="flow-line" d="M 150 210 L 350 210" fill="none" stroke="#ddd" stroke-width="8" stroke-linecap="round"/>
+
+        <!-- TABLERO ELÉCTRICO [10] -->
+        <rect x="350" y="50" width="400" height="380" fill="#fcfcfc" stroke="#90a4ae" stroke-width="2" rx="15"/>
+        <rect x="350" y="50" width="400" height="40" fill="#eceff1" rx="15 15 0 0"/>
+        <text x="440" y="75" font-weight="bold" fill="#455a64" font-size="14">TABLERO SECCIONAL DIN</text>
+
+        <!-- Térmica Solar -->
+        <g id="ui-termica-solar">
+            <rect x="375" y="120" width="50" height="100" fill="#fff" stroke="#333" stroke-width="1.5" rx="5"/>
+            <rect id="handleSolar" x="392" y="130" width="15" height="30" fill="#cfd8dc"/>
+            <text x="370" y="240" font-size="10" font-weight="bold">Térmica 25A</text>
+        </g>
+
+        <!-- Smart Meter (Cerebro de Inyección Cero) [10, 11] -->
+        <g id="ui-smart-meter">
+            <rect x="480" y="120" width="80" height="130" fill="#fff" stroke="#1976d2" stroke-width="3" rx="8"/>
+            <rect x="490" y="135" width="60" height="35" fill="#e3f2fd"/>
+            <text id="meterVal" x="495" y="158" font-family="monospace" font-size="14" font-weight="bold" fill="#1565c0">0.00kW</text>
+            <text x="485" y="270" font-size="11" font-weight="bold" fill="#1976d2">SMART METER</text>
+            <!-- Leds de estado -->
+            <circle cx="500" cy="220" r="4" fill="#2ecc71" id="led-ok"/>
+            <circle cx="540" cy="220" r="4" fill="#ddd" id="led-warn"/>
+        </g>
+
+        <!-- Diferencial General -->
+        <g id="ui-diferencial">
+            <rect x="620" y="120" width="60" height="100" fill="#fff" stroke="#333" stroke-width="1.5" rx="5"/>
+            <circle cx="650" cy="180" r="8" fill="#e74c3c"/>
+            <text x="615" y="240" font-size="10" font-weight="bold">Diferencial</text>
+        </g>
+
+        <!-- LÍNEA DE RED (BIDIRECCIONAL) [10, 12] -->
+        <path id="pathGrid" class="flow-line" d="M 900 210 L 750 210" fill="none" stroke="#ddd" stroke-width="10" stroke-linecap="round"/>
+        <text x="810" y="190" font-weight="bold" fill="#546e7a">RED ELÉCTRICA</text>
+
+        <!-- SALIDA A CARGAS DEL HOGAR -->
+        <path id="pathHouse" class="flow-line" d="M 650 220 L 650 420 L 500 420" fill="none" stroke="#ddd" stroke-width="10" stroke-linecap="round"/>
+        <text x="280" y="445" font-weight="bold" fill="#3498db" font-size="16">CONSUMO DEL HOGAR (220V AC)</text>
+        
+        <!-- DISPLAY DE ESTADO INFERIOR -->
+        <rect x="300" y="460" width="400" height="35" fill="#263238" rx="10"/>
+        <text id="statusLabel" x="500" y="483" text-anchor="middle" fill="#fff" font-weight="bold" font-size="14">SISTEMA CONECTADO - LISTO</text>
+    </svg>
+
+    <div class="info-grid">
+        <div class="card-info">
+            <strong>Flujo Continuo:</strong> Se ha optimizado la animación para que el movimiento sea 100% fluido, representando fielmente la corriente alterna sincronizada [13].
+        </div>
+        <div class="card-info">
+            <strong>Inyección Cero Activa:</strong> En este modo, el Smart Meter detecta si hay excedentes y se comunica con los microinversores para "frenar" la producción y no exportar a la red [11].
+        </div>
+        <div class="card-info">
+            <strong>Seguridad en el Tablero:</strong> El diseño incluye térmica bipolar y disyuntor diferencial, garantizando la protección de los 4.3kW de potencia instalada [10].
+        </div>
+    </div>
+</div>
+
+<script>
+    function setMode(mode) {
+        const pSolar = document.getElementById('pathSolar');
+        const pGrid = document.getElementById('pathGrid');
+        const pHouse = document.getElementById('pathHouse');
+        const meter = document.getElementById('meterVal');
+        const status = document.getElementById('statusLabel');
+        const handle = document.getElementById('handleSolar');
+        const ledW = document.getElementById('led-warn');
+
+        // Reset
+        pSolar.className.baseVal = "flow-line";
+        pGrid.className.baseVal = "flow-line";
+        pHouse.className.baseVal = "flow-line";
+        pSolar.style.stroke = "#ddd"; pGrid.style.stroke = "#ddd"; pHouse.style.stroke = "#ddd";
+        ledW.style.fill = "#ddd";
+
+        if (mode === 'zero') {
+            // Caso: Paneles producen lo justo o sobra (Bloqueado)
+            pSolar.classList.add('anim-forward');
+            pSolar.style.stroke = "var(--accent-yellow)";
+            pHouse.classList.add('anim-forward');
+            pHouse.style.stroke = "var(--house-blue)";
+            
+            meter.textContent = "0.00kW";
+            status.textContent = "INYECCIÓN CERO: Consumo cubierto por Sol";
+            handle.setAttribute('fill', 'var(--accent-yellow)');
+            ledW.style.fill = "var(--accent-yellow)";
+        } 
+        else if (mode === 'mixed') {
+            // Caso: Los paneles no alcanzan. La red entra (Flujo Red -> Tablero)
+            pSolar.classList.add('anim-forward');
+            pSolar.style.stroke = "var(--accent-yellow)";
+            pGrid.classList.add('anim-forward'); // Dirección Red a Casa
+            pGrid.style.stroke = "var(--grid-green)";
+            pHouse.classList.add('anim-forward');
+            pHouse.style.stroke = "var(--house-blue)";
+            
+            meter.textContent = "1.45kW";
+            status.textContent = "MODO MIXTO: Tomando apoyo de la red";
+            handle.setAttribute('fill', 'var(--accent-yellow)');
+        }
+        else if (mode === 'night') {
+            // Caso: Noche. Solo red suministra.
+            pGrid.classList.add('anim-forward');
+            pGrid.style.stroke = "var(--grid-green)";
+            pHouse.classList.add('anim-forward');
+            pHouse.style.stroke = "var(--house-blue)";
+            
+            meter.textContent = "3.20kW";
+            status.textContent = "MODO NOCHE: Suministro total desde Red Pública";
+            handle.setAttribute('fill', '#cfd8dc');
+        }
+    }
+</script>
+
+</body>
+</html>
