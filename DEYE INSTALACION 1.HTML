@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Interactivo - Deye SUN-5K-G</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; border-bottom: 3px solid #e67e22; padding-bottom: 10px; }
+        
+        /* Esquema de Conexiones */
+        .diagram-container { display: flex; justify-content: space-around; flex-wrap: wrap; margin-top: 30px; gap: 20px; }
+        .component { border: 2px solid #bdc3c7; border-radius: 8px; padding: 15px; width: 250px; text-align: center; position: relative; }
+        .inverter { background: #ecf0f1; border: 3px solid #3498db; }
+        .pin-box { font-size: 0.8em; text-align: left; background: #fff; padding: 5px; border: 1px dashed #7f8c8d; margin-top: 10px; }
+        
+        /* Simulador Interactivo */
+        .simulator { background: #2c3e50; color: white; padding: 20px; border-radius: 10px; margin-top: 40px; }
+        .controls { display: flex; gap: 20px; margin-bottom: 20px; }
+        .status-display { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
+        .stat-card { background: #34495e; padding: 15px; border-radius: 8px; border: 1px solid #e67e22; }
+        .stat-value { font-size: 1.5em; font-weight: bold; color: #e67e22; }
+        
+        button { cursor: pointer; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; transition: 0.3s; }
+        .btn-on { background: #27ae60; color: white; }
+        .btn-off { background: #e74c3c; color: white; }
+        input[type=range] { width: 100%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Instalación y Puesta en Marcha Interactiva: Deye SUN-5K-G</h1>
+
+    <!-- Sección de Conexiones Técnicas -->
+    <h2>1. Esquema de Conexiones (Basado en Manual)</h2>
+    <div class="diagram-container">
+        <!-- Paneles -->
+        <div class="component">
+            <h3>Entrada DC (Paneles)</h3>
+            <p>Conectores MC4</p>
+            <div class="pin-box">
+                • Voltaje Máx: 550V [1, 2]<br>
+                • Corriente Máx: 13A [1]<br>
+                • Configuración: Serie
+            </div>
+        </div>
+
+        <!-- Inversor -->
+        <div class="component inverter">
+            <h3>Inversor Deye</h3>
+            <p>Puerto RS485 (Vatímetro)</p>
+            <div class="pin-box">
+                • <b>Pin 8:</b> Masa (GND) [3]<br>
+                • <b>Pin 9:</b> RS485B (Rojo) [3]<br>
+                • <b>Pin 10:</b> RS485A (Amarillo) [3]
+            </div>
+        </div>
+
+        <!-- Red/Grid -->
+        <div class="component">
+            <h3>Salida AC (Grid)</h3>
+            <p>Conector de 3 pines</p>
+            <div class="pin-box">
+                • Tierra | Neutro | Fase [2]<br>
+                • Voltaje: ~240V AC [4]<br>
+                • Muesca de seguridad única
+            </div>
+        </div>
+    </div>
+
+    <!-- Simulador de Funcionamiento -->
+    <h2>2. Simulador de Funcionamiento Logístico</h2>
+    <p>Ajusta la producción solar y el consumo de la casa para ver cómo responde el inversor según el modo de inyección configurado.</p>
+    
+    <div class="simulator">
+        <div class="controls">
+            <div>
+                <label>Producción Solar (W):</label>
+                <input type="range" id="solarInput" min="0" max="5000" value="3000" oninput="updateSim()">
+            </div>
+            <div>
+                <label>Consumo Hogar (W):</label>
+                <input type="range" id="loadInput" min="0" max="5000" value="1000" oninput="updateSim()">
+            </div>
+            <div>
+                <label>Modo Meter (Inyección):</label><br>
+                <button id="meterBtn" class="btn-off" onclick="toggleMeter()">METER OFF (Exportar)</button>
+            </div>
+        </div>
+
+        <div class="status-display">
+            <div class="stat-card">
+                <div>Generación Real</div>
+                <div id="genVal" class="stat-value">0 W</div>
+            </div>
+            <div class="stat-card">
+                <div>Consumo Casa</div>
+                <div id="loadVal" class="stat-value">0 W</div>
+            </div>
+            <div class="stat-card" id="gridCard">
+                <div id="gridLabel">Red (Exportación)</div>
+                <div id="gridVal" class="stat-value">0 W</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+        <h3>Notas de Puesta en Marcha [5-7]:</h3>
+        <ul>
+            <li><b>Secuencia:</b> 1º AC Breaker -> 2º DC Protecciones -> 3º DC Switch del inversor.</li>
+            <li><b>Código de Red:</b> Configurar a <b>RD 1699</b> (España) con contraseña <b>1234</b>.</li>
+            <li><b>Inyección Cero:</b> Se activa poniendo <b>Meter ON</b> en el menú <i>Setup > Room</i>.</li>
+            <li><b>Ceguera Nocturna:</b> El WiFi se apaga de noche porque el equipo deja de consumir de la red [8].</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    let meterOn = false;
+
+    function toggleMeter() {
+        meterOn = !meterOn;
+        const btn = document.getElementById('meterBtn');
+        if(meterOn) {
+            btn.innerText = "METER ON (Inyección 0)";
+            btn.className = "btn-on";
+        } else {
+            btn.innerText = "METER OFF (Exportar)";
+            btn.className = "btn-off";
+        }
+        updateSim();
+    }
+
+    function updateSim() {
+        let solar = parseInt(document.getElementById('solarInput').value);
+        let load = parseInt(document.getElementById('loadInput').value);
+        let generation = solar;
+        let grid = 0;
+
+        if (meterOn) {
+            // Lógica de Inyección Cero [9, 10]
+            if (solar > load) {
+                generation = load; // El inversor baja su potencia para igualar el consumo
+                grid = 0;
+            } else {
+                generation = solar;
+                grid = load - solar; // Importa de la red lo que falta
+            }
+        } else {
+            // Lógica de Inyección Total [7, 11]
+            grid = load - solar; // Si es negativo, es exportación
+        }
+
+        document.getElementById('genVal').innerText = generation + " W";
+        document.getElementById('loadVal').innerText = load + " W";
+        
+        const gridValEl = document.getElementById('gridVal');
+        const gridLabelEl = document.getElementById('gridLabel');
+        
+        if (grid < 0) {
+            gridLabelEl.innerText = "Red (Exportando)";
+            gridValEl.innerText = Math.abs(grid) + " W";
+            gridValEl.style.color = "#27ae60";
+        } else if (grid > 0) {
+            gridLabelEl.innerText = "Red (Importando)";
+            gridValEl.innerText = grid + " W";
+            gridValEl.style.color = "#e74c3c";
+        } else {
+            gridLabelEl.innerText = "Red (Balance 0)";
+            gridValEl.innerText = "0 W";
+            gridValEl.style.color = "#e67e22";
+        }
+    }
+
+    // Inicializar
+    updateSim();
+</script>
+
+</body>
+</html>
