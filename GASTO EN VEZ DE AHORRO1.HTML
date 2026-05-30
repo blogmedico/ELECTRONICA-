@@ -1,0 +1,151 @@
+html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulador Solar Educativo - Tiempo Extendido</title>
+    <style>
+        :root {
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --solar: #f1c40f;
+            --grid: #34495e;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; color: white; margin: 0; padding: 20px; overflow-x: hidden; }
+        .container { max-width: 1000px; margin: auto; background: #34495e; padding: 20px; border-radius: 15px; box-shadow: 0 0 50px rgba(0,0,0,0.5); border: 2px solid #455a64; }
+        .header { text-align: center; border-bottom: 2px solid #546e7a; padding-bottom: 10px; margin-bottom: 20px; }
+        
+        #sim-box { background: white; border-radius: 10px; padding: 20px; position: relative; height: 400px; }
+        .component { position: absolute; text-align: center; color: #333; font-weight: bold; }
+        #panel-f { top: 20px; left: 50px; width: 120px; }
+        #casa-f { top: 250px; left: 400px; width: 150px; }
+        #red-f { top: 20px; right: 50px; width: 120px; }
+        
+        .meter-ui { background: #000; color: #0f0; font-family: monospace; padding: 10px; border-radius: 5px; border: 3px solid #7f8c8d; font-size: 1.2rem; }
+        #company-meter { top: 120px; right: 30px; }
+        .alert-active { border-color: var(--danger) !important; animation: pulse-red 0.5s infinite; }
+
+        .wire { stroke: #bdc3c7; stroke-width: 8; fill: none; stroke-dasharray: 10; }
+        .flow-active { stroke: var(--success); animation: flow-line 0.5s linear infinite; }
+        .flow-danger { stroke: var(--danger); animation: flow-line-rev 0.3s linear infinite; }
+        
+        @keyframes flow-line { to { stroke-dashoffset: -20; } }
+        @keyframes flow-line-rev { to { stroke-dashoffset: 20; } }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0px red; } 50% { box-shadow: 0 0 20px red; } 100% { box-shadow: 0 0 0px red; } }
+
+        .controls { text-align: center; margin-top: 20px; }
+        .btn-start { background: var(--success); color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
+        
+        #narrator { margin-top: 20px; padding: 15px; background: #1a252f; border-left: 5px solid var(--solar); min-height: 50px; font-style: italic; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>⚠️ LECCIÓN CRÍTICA: RIESGO DE INYECCIÓN</h1>
+    </div>
+
+    <div id="sim-box">
+        <svg width="100%" height="100%" style="position:absolute; top:0; left:0;">
+            <path id="wire-solar" class="wire" d="M 120 80 L 475 80 L 475 250" />
+            <path id="wire-grid" class="wire" d="M 800 80 L 475 80" />
+        </svg>
+
+        <div id="panel-f" class="component">
+            <img src="https://cdn-icons-png.flaticon.com/128/2943/2943360.png" width="80"><br>
+            SISTEMA SOLAR
+        </div>
+
+        <div id="casa-f" class="component">
+            <img src="https://cdn-icons-png.flaticon.com/128/609/609803.png" width="100"><br>
+            CARGA DEL CLIENTE
+        </div>
+
+        <div id="red-f" class="component">
+            <img src="https://cdn-icons-png.flaticon.com/128/2311/2311331.png" width="80"><br>
+            RED ELÉCTRICA
+        </div>
+
+        <div id="company-meter" class="component meter-ui">
+            MEDIDOR CALLE<br>
+            <span id="kwh-value">002450.00</span> kWh
+        </div>
+    </div>
+
+    <div id="narrator">Listo para la clase. Haga clic abajo para iniciar...</div>
+
+    <div class="controls">
+        <button class="btn-start" onclick="startLesson()">▶️ INICIAR SIMULACIÓN (TIEMPO LENTO)</button>
+    </div>
+</div>
+
+<script>
+    let kwh = 2450.00;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playBeep(freq, duration, type = 'sine') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    async function startLesson() {
+        const text = document.getElementById('narrator');
+        const wireSolar = document.getElementById('wire-solar');
+        const wireGrid = document.getElementById('wire-grid');
+        const kwhDisplay = document.getElementById('kwh-value');
+        const meterBox = document.getElementById('company-meter');
+
+        // PASO 1: Escenario Inicial (Noche)
+        text.innerHTML = "<strong>PASO 1:</strong> Escenario nocturno. Sin sol, la casa consume exclusivamente de la red. El medidor avanza a velocidad normal.";
+        wireGrid.classList.add('flow-active');
+        playBeep(440, 0.2);
+        
+        let interval = setInterval(() => {
+            kwh += 0.01;
+            kwhDisplay.innerText = kwh.toFixed(2);
+        }, 500);
+
+        // ESPERA DUPLICADA: 8 segundos
+        await new Promise(r => setTimeout(r, 8000));
+
+        // PASO 2: Sale el Sol
+        clearInterval(interval);
+        text.innerHTML = "<strong>PASO 2:</strong> Amanece. Los paneles generan energía y cubren el consumo interno. Noten que el medidor de la calle se detiene (consumo cero).";
+        wireSolar.classList.add('flow-active');
+        wireGrid.classList.remove('flow-active');
+        playBeep(880, 0.3);
+        
+        // ESPERA DUPLICADA: 8 segundos
+        await new Promise(r => setTimeout(r, 10000));
+
+        // PASO 3: EL DESASTRE
+        text.innerHTML = "<strong>PASO 3: EL ERROR CARO.</strong> El cliente apaga sus equipos Y FALLA LA COMUNICACION ENTRE EL MEETER el inversor, POR LO QUE ESTE sigue inyectando AUNQUE NO HAYA CONSUMO INTERNO . El medidor antiguo NO distingue dirección y suma el excedente como si fuera consumo.";
+        wireGrid.classList.add('flow-danger');
+        meterBox.classList.add('alert-active');
+        
+        interval = setInterval(() => {
+            kwh += 0.15; 
+            kwhDisplay.innerText = kwh.toFixed(2);
+            playBeep(200, 0.1, 'sawtooth');
+        }, 150);
+
+        // ESPERA DUPLICADA: 10 segundos
+        await new Promise(r => setTimeout(r, 10000));
+        clearInterval(interval);
+
+        alert("⚠️ CONCLUSIÓN EDUCATIVA:\n\nSi esta programación falla 'Inyección Cero' (Meter ON) y el medidor no es bidireccional, el cliente le termina regalando energía a la empresa y, además, ¡LA PAGA como consumo! El gasto aumenta en lugar de bajar.");
+        
+        text.innerHTML = "<strong>RESUMEN:</strong> Siempre verifiquen la configuración del Smart Meter para evitar cargos injustos al usuario.";
+    }
+</script>
+
+</body>
+</html>
