@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio Máster: Inversor Solar, Analogía del Agua y Protección PQ</title>
+    <style>
+        :root {
+            --bg: #0b132b;
+            --card-bg: #1c2541;
+            --text: #edf2f4;
+            --p-color: #2ec4b6;      /* Verde Caudal / Potencia Activa */
+            --q-color: #ff006e;      /* Rosa Presión / Potencia Reactiva */
+            --s-color: #ffbe0b;      /* Amarillo Potencia Aparente */
+            --grid-blue: #00b4d8;    /* Azul Red */
+            --safe-green: #10b981;
+            --warn-red: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1250px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0 0 5px 0; font-size: 1.9em; color: #ffffff; }
+        .subtitle { color: #90e0ef; font-size: 0.95em; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 950px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            border: 1px solid #3a506b;
+        }
+
+        canvas {
+            width: 100%;
+            height: 220px;
+            background: #0b0f19;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .controls-box {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #0b0f19;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .control-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--s-color);
+            cursor: pointer;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 130px;
+            padding: 8px;
+            background: #3a506b;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: #5bc0be; color: #0b132b; }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .metric-card {
+            background: #0b0f19;
+            padding: 8px 4px;
+            border-radius: 8px;
+            text-align: center;
+            border-bottom: 3px solid #fff;
+        }
+
+        .metric-title { font-size: 0.65em; color: #a5a5a5; font-weight: bold; }
+        .metric-val { font-size: 1.1em; font-weight: bold; margin-top: 2px; }
+
+        .thermal-box {
+            margin-top: 12px;
+            background: #0b0f19;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .thermal-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 14px;
+            background: #1c2541;
+            border-radius: 7px;
+            overflow: hidden;
+            border: 1px solid #3a506b;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 50%;
+            background: var(--safe-green);
+            transition: width 0.2s, background-color 0.2s;
+        }
+
+        .live-explanation {
+            margin-top: 12px;
+            background: #0b0f19;
+            border-radius: 10px;
+            padding: 12px;
+            border-left: 4px solid var(--s-color);
+            line-height: 1.45;
+            font-size: 0.88em;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 0.75em;
+            margin-bottom: 6px;
+        }
+
+        .badge-safe { background: rgba(16, 185, 129, 0.2); color: var(--safe-green); }
+        .badge-warn { background: rgba(239, 68, 68, 0.2); color: var(--warn-red); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>⚡ Laboratorio Máster: Inversor Solar en la Red Eléctrica</h1>
+        <p class="subtitle">Simulador Integrado: Analogía Hidráulica, Control PQ, Triángulo de Potencias y Protección Térmica</p>
+    </header>
+
+    <div class="main-grid">
+        <!-- Panel Izquierdo: Analogía del Agua y Controles -->
+        <div class="card">
+            <h3>💧 1. Red Hidráulica del Barrio y Controles de Generación</h3>
+            <canvas id="waterCanvas"></canvas>
+
+            <div class="controls-box">
+                <div class="control-row">
+                    <div class="control-label">
+                        <span>☀️ Caudal Solar Generado (Potencia Activa P):</span>
+                        <span id="txtP" style="color: var(--p-color)">8.0 kW</span>
+                    </div>
+                    <input type="range" id="sliderP" min="0" max="12" step="0.5" value="8">
+                </div>
+
+                <div class="control-row">
+                    <div class="control-label">
+                        <span>🎚️ Presión del Inversor (V_inv vs V_red):</span>
+                        <span id="txtV" style="color: var(--q-color)">100% (220V - Presión Igual)</span>
+                    </div>
+                    <input type="range" id="sliderV" min="70" max="130" step="1" value="100">
+                </div>
+            </div>
+
+            <div class="preset-buttons">
+                <button class="btn" id="presetIdeal">🎯 Modo Neutro (cos φ = 1.0)</button>
+                <button class="btn" id="presetTarde">⚡ Tarde Pico (Inyectar Reactiva)</button>
+                <button class="btn" id="presetSolDerating">🌞 Mediodía (Absorber / Derating)</button>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Triángulo de Potencias, Protección Térmica y Diagnóstico -->
+        <div class="card">
+            <h3>🛡️ 2. Triángulo de Potencias, Límite Térmico y Diagnóstico</h3>
+            <canvas id="triangleCanvas"></canvas>
+
+            <div class="thermal-box">
+                <div class="thermal-header">
+                    <span>🌡️ Carga Térmica / Corriente Transistores (S_máx = 10 kVA):</span>
+                    <span id="txtThermalPercent" style="color: var(--safe-green)">80% (Zona Segura)</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="thermalBar"></div>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card" style="border-color: var(--p-color)">
+                    <div class="metric-title">CAUDAL ÚTIL (P)</div>
+                    <div class="metric-val" id="mP" style="color: var(--p-color)">8.0 kW</div>
+                </div>
+                <div class="metric-card" style="border-color: var(--q-color)">
+                    <div class="metric-title">PRESIÓN/REACTIVA (Q)</div>
+                    <div class="metric-val" id="mQ" style="color: var(--q-color)">0.0 kVAR</div>
+                </div>
+                <div class="metric-card" style="border-color: var(--s-color)">
+                    <div class="metric-title">APARENTE (S)</div>
+                    <div class="metric-val" id="mS" style="color: var(--s-color)">8.0 kVA</div>
+                </div>
+                <div class="metric-card" style="border-color: var(--grid-blue)">
+                    <div class="metric-title">FACTOR POT.</div>
+                    <div class="metric-val" id="mFP" style="color: var(--grid-blue)">1.00</div>
+                </div>
+            </div>
+
+            <div class="live-explanation">
+                <div id="badgeStatus" class="badge badge-safe">🟢 ESTADO TÉRMICO SEGURAL</div>
+                <div id="expText">Cargando diagnóstico...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const wCanvas = document.getElementById('waterCanvas');
+    const wCtx = wCanvas.getContext('2d');
+    const tCanvas = document.getElementById('triangleCanvas');
+    const tCtx = tCanvas.getContext('2d');
+
+    const sliderP = document.getElementById('sliderP');
+    const sliderV = document.getElementById('sliderV');
+    const txtP = document.getElementById('txtP');
+    const txtV = document.getElementById('txtV');
+
+    const mP = document.getElementById('mP');
+    const mQ = document.getElementById('mQ');
+    const mS = document.getElementById('mS');
+    const mFP = document.getElementById('mFP');
+
+    const thermalBar = document.getElementById('thermalBar');
+    const txtThermalPercent = document.getElementById('txtThermalPercent');
+    const badgeStatus = document.getElementById('badgeStatus');
+    const expText = document.getElementById('expText');
+
+    const S_MAX = 10.0; // Límite nominal de corriente (10 kVA)
+    let particles = [];
+    let animTime = 0;
+
+    function resize() {
+        wCanvas.width = wCanvas.offsetWidth;
+        wCanvas.height = wCanvas.offsetHeight;
+        tCanvas.width = tCanvas.offsetWidth;
+        tCanvas.height = tCanvas.offsetHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Partículas de agua para simular caudal
+    for(let i=0; i<35; i++) {
+        particles.push({ x: Math.random() * 300, y: 0 });
+    }
+
+    function update() {
+        const pDeseada = parseFloat(sliderP.value);
+        const vPercent = parseFloat(sliderV.value);
+        const vVolts = (220 * (vPercent / 100)).toFixed(0);
+
+        txtP.textContent = `${pDeseada.toFixed(1)} kW`;
+        txtV.textContent = `${vPercent}% (${vVolts}V - ${vPercent > 100 ? 'Presión Alta' : (vPercent < 100 ? 'Presión Baja' : 'Presión Igual')})`;
+
+        // Física del sistema
+        const deltaV = vPercent - 100;
+        const qDemand = deltaV * 0.18; // kVAR
+        const vNodo = (220 + deltaV * 0.5).toFixed(0);
+
+        // Potencia Aparente Teórica S = sqrt(P^2 + Q^2)
+        const sTeorica = Math.sqrt(pDeseada * pDeseada + qDemand * qDemand);
+        let pEfectiva = pDeseada;
+        let isDerating = false;
+
+        // Autorregulación por límite térmico (Derating)
+        if (sTeorica > S_MAX) {
+            isDerating = true;
+            pEfectiva = Math.sqrt(Math.max(0, S_MAX * S_MAX - qDemand * qDemand));
+        }
+
+        const sEfectiva = Math.sqrt(pEfectiva * pEfectiva + qDemand * qDemand);
+        const thermalLoadPercent = Math.min(100, (sEfectiva / S_MAX) * 100);
+
+        const phi = Math.atan2(Math.abs(qDemand), pEfectiva || 0.1);
+        const cosPhi = Math.cos(phi).toFixed(2);
+
+        // Actualizar Métricas en pantalla
+        mP.textContent = pEfectiva.toFixed(1) + " kW" + (isDerating ? " ⚠️" : "");
+        mQ.textContent = (qDemand >= 0 ? "+" : "") + qDemand.toFixed(1) + " kVAR";
+        mS.textContent = sEfectiva.toFixed(1) + " kVA";
+        mFP.textContent = cosPhi;
+
+        // Actualizar Barra Térmica
+        thermalBar.style.width = thermalLoadPercent + "%";
+        if (isDerating || thermalLoadPercent >= 99) {
+            thermalBar.style.backgroundColor = "var(--warn-red)";
+            txtThermalPercent.textContent = `${thermalLoadPercent.toFixed(0)}% (Límite Máximo kVA Alcanzado)`;
+            txtThermalPercent.style.color = "var(--warn-red)";
+            badgeStatus.className = "badge badge-warn";
+            badgeStatus.textContent = "🛡️ AUTORREGULACIÓN TÉRMICA ACTIVA (DERATING)";
+        } else {
+            thermalBar.style.backgroundColor = "var(--safe-green)";
+            txtThermalPercent.textContent = `${thermalLoadPercent.toFixed(0)}% (Zona de Operación Segura)`;
+            txtThermalPercent.style.color = "var(--safe-green)";
+            badgeStatus.className = "badge badge-safe";
+            badgeStatus.textContent = "🟢 ESTADO TÉRMICO SEGURO";
+        }
+
+        // Diagnóstico Didáctico Unificado
+        let textDiag = "";
+        if (isDerating) {
+            textDiag = `
+                <b>🛡️ Protección Térmica por Límite de Corriente Activa:</b><br>
+                • La combinación deseada de caudal solar (${pDeseada.toFixed(1)} kW) y reactiva (${qDemand.toFixed(1)} kVAR) sobrepasaba los <b>10.0 kVA</b> de corriente permitida.<br>
+                • <b>Acción del Inversor:</b> Para no quemar los transistores, recortó automáticamente el caudal solar útil a <b>${pEfectiva.toFixed(1)} kW</b>.<br>
+                • De este modo, la potencia aparente total se mantiene perfectamente en <b>10.0 kVA</b> sin sufrir ningún daño.
+            `;
+        } else if (qDemand < 0) {
+            textDiag = `
+                <b>⬇️ Absorbiendo Potencia Reactiva (Q = ${qDemand.toFixed(1)} kVAR):</b><br>
+                • <b>Analogía Hidráulica:</b> El inversor reduce su presión interna a <b>${vVolts} V</b>, desinflando la sobrepresión del barrio y bajando el voltaje del nodo a <b>${vNodo} V</b>.<br>
+                • <b>Cero Desgaste:</b> Absorber reactiva es intercambio magnético. La carga aparente es de <b>${sEfectiva.toFixed(1)} kVA (${thermalLoadPercent.toFixed(0)}%)</b>, operando con total seguridad.
+            `;
+        } else if (qDemand > 0) {
+            textDiag = `
+                <b>⬆️ Inyectando Potencia Reactiva (Q = +${qDemand.toFixed(1)} kVAR):</b><br>
+                • <b>Analogía Hidráulica:</b> El inversor empuja a mayor presión (<b>${vVolts} V</b>) que la red, inflando la presión del vecindario a <b>${vNodo} V</b> para compensar consumos altos de los vecinos.<br>
+                • Operando con carga aparente de <b>${sEfectiva.toFixed(1)} kVA</b> dentro del límite permitido.
+            `;
+        } else {
+            textDiag = `
+                <b>🎯 Modo Neutro (cos &phi; = 1.0):</b><br>
+                • El inversor empuja agua útil a la misma presión exacta que la red (220 V). Sin intercambio de reactiva (Q = 0). Máxima eficiencia.
+            `;
+        }
+        expText.innerHTML = textDiag;
+
+        // --- DIBUJAR CANVAS 1: TUBERÍA HIDRÁULICA Y VECINOS ---
+        wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
+        const wW = wCanvas.width;
+        const wH = wCanvas.height;
+
+        const pipeY = wH / 2;
+        const pipeThick = 20 + (deltaV * 0.35);
+
+        // Tubería del Barrio
+        wCtx.fillStyle = deltaV > 0 ? "rgba(255, 0, 110, 0.2)" : (deltaV < 0 ? "rgba(255, 190, 11, 0.2)" : "rgba(0, 180, 216, 0.2)");
+        wCtx.fillRect(10, pipeY - pipeThick/2, wW - 20, pipeThick);
+        wCtx.strokeStyle = "#3a506b";
+        wCtx.lineWidth = 3;
+        wCtx.strokeRect(10, pipeY - pipeThick/2, wW - 20, pipeThick);
+
+        // Casa Inversor
+        wCtx.fillStyle = "#2ec4b6";
+        wCtx.fillRect(wW * 0.2, 15, 65, 45);
+        wCtx.fillStyle = "#ffffff";
+        wCtx.font = "10px sans-serif";
+        wCtx.fillText("MI INVERSOR", wW * 0.2 + 4, 32);
+        wCtx.fillText(`${pEfectiva.toFixed(1)} kW`, wW * 0.2 + 12, 48);
+
+        // Tubo de bajada
+        wCtx.strokeStyle = "#2ec4b6";
+        wCtx.lineWidth = 4;
+        wCtx.beginPath();
+        wCtx.moveTo(wW * 0.2 + 32, 60);
+        wCtx.lineTo(wW * 0.2 + 32, pipeY - pipeThick/2);
+        wCtx.stroke();
+
+        // Vecinos
+        wCtx.fillStyle = "#3a506b";
+        wCtx.fillRect(wW * 0.65, wH - 55, 55, 40);
+        wCtx.fillRect(wW * 0.82, wH - 55, 55, 40);
+        wCtx.fillStyle = "#ffffff";
+        wCtx.fillText("Vecino A", wW * 0.65 + 6, wH - 30);
+        wCtx.fillText("Vecino B", wW * 0.82 + 6, wH - 30);
+
+        // Partículas de Agua (Caudal)
+        wCtx.fillStyle = "#00b4d8";
+        particles.forEach(p => {
+            p.x += (pEfectiva * 0.35);
+            if(p.x > wW - 20) p.x = 10;
+            wCtx.beginPath();
+            wCtx.arc(p.x, pipeY, 3, 0, Math.PI*2);
+            wCtx.fill();
+        });
+
+        // --- DIBUJAR CANVAS 2: TRIÁNGULO DE POTENCIAS Y LÍMITE S_MAX ---
+        tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height);
+        const cW = tCanvas.width;
+        const cH = tCanvas.height;
+        const originX = 40;
+        const originY = cH / 2 + 25;
+        const scale = 14;
+
+        // Círculo de Límite S_máx = 10 kVA
+        tCtx.strokeStyle = "#3a506b";
+        tCtx.lineWidth = 1.5;
+        tCtx.setLineDash([4, 4]);
+        tCtx.beginPath();
+        tCtx.arc(originX, originY, S_MAX * scale, -Math.PI/2, Math.PI/2);
+        tCtx.stroke();
+        tCtx.setLineDash([]);
+
+        // Vector P (Verde)
+        const pLen = pEfectiva * scale;
+        drawArrow(tCtx, originX, originY, originX + pLen, originY, "#2ec4b6", 3, `P = ${pEfectiva.toFixed(1)} kW`);
+
+        // Vector Q (Rosa)
+        const qLen = qDemand * scale;
+        drawArrow(tCtx, originX + pLen, originY, originX + pLen, originY - qLen, "#ff006e", 3, `Q = ${qDemand.toFixed(1)}`);
+
+        // Vector S (Amarillo/Rojo)
+        const sColor = isDerating ? "#ef4444" : "#ffbe0b";
+        drawArrow(tCtx, originX, originY, originX + pLen, originY - qLen, sColor, 3.5, `S = ${sEfectiva.toFixed(1)} kVA`);
+
+        animTime += 0.04;
+        requestAnimationFrame(update);
+    }
+
+    function drawArrow(ctx, fromX, fromY, toX, toY, color, width, label) {
+        const headLen = 7;
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = width;
+
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+
+        if (label) {
+            ctx.font = "10px sans-serif";
+            ctx.fillText(label, (fromX + toX)/2 + 4, (fromY + toY)/2 - 4);
+        }
+    }
+
+    // Presets
+    document.getElementById('presetIdeal').addEventListener('click', () => {
+        sliderP.value = 8.0; sliderV.value = 100;
+    });
+    document.getElementById('presetTarde').addEventListener('click', () => {
+        sliderP.value = 5.0; sliderV.value = 115;
+    });
+    document.getElementById('presetSolDerating').addEventListener('click', () => {
+        sliderP.value = 12.0; sliderV.value = 75; // Fuerza el derating
+    });
+
+    sliderP.addEventListener('input', update);
+    sliderV.addEventListener('input', update);
+
+    update();
+</script>
+
+</body>
+</html>

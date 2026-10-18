@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador PRO: Vectores, PLL y Control PQ en Tiempo Real</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --grid-color: #0284c7;  /* Azul Red */
+            --inv-color: #e11d48;   /* Rojo Inversor */
+            --p-color: #22c55e;     /* Verde Potencia Activa */
+            --q-color: #a855f7;     /* Púrpura Potencia Reactiva */
+            --accent: #38bdf8;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1150px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0 0 5px 0; font-size: 1.8em; color: #f1f5f9; }
+        .subtitle { color: #94a3b8; font-size: 1em; }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-layout { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+        }
+
+        canvas {
+            width: 100%;
+            height: 250px;
+            background: #020617;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .metrics-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .metric-card {
+            background: #090d16;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            border-top: 3px solid #fff;
+        }
+
+        .metric-val {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+
+        /* Caja de Explicación en Tiempo Real PRO */
+        .live-explanation {
+            margin-top: 15px;
+            background: #090d16;
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .exp-box {
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.88em;
+            line-height: 1.4;
+        }
+
+        .exp-p { background: rgba(34, 197, 94, 0.1); border-left: 3px solid var(--p-color); }
+        .exp-q { background: rgba(168, 85, 247, 0.1); border-left: 3px solid var(--q-color); }
+        .exp-summary { background: rgba(56, 189, 248, 0.1); border-left: 3px solid var(--accent); font-weight: 500; }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 8px;
+            font-size: 0.82em;
+            color: #cbd5e1;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>⚡ Laboratorio de Control de Inversores (PLL + PQ)</h1>
+        <p class="subtitle">Ajusta los parámetros para ver la explicación física y matemática en tiempo real</p>
+    </header>
+
+    <div class="grid-layout">
+        <!-- Panel Izquierdo: Controles y Diagrama Vectorial -->
+        <div class="card">
+            <h3>1. Vectores Giratorios d-q (Fasores)</h3>
+            <canvas id="vectorCanvas"></canvas>
+
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background: var(--grid-color)"></div>V_Red (Referencia)</div>
+                <div class="legend-item"><div class="dot" style="background: var(--inv-color)"></div>V_Inversor</div>
+                <div class="legend-item"><div class="dot" style="background: var(--p-color)"></div>Ángulo δ</div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <div class="control-header">
+                        <span>📐 Ángulo de Fase δ (Control de Potencia Activa P)</span>
+                        <span id="deltaVal" style="color: var(--p-color)">+20°</span>
+                    </div>
+                    <input type="range" id="deltaSlider" min="-45" max="45" value="20">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <span>📊 Magnitud |V_inv| (Control de Potencia Reactiva Q)</span>
+                        <span id="magVal" style="color: var(--q-color)">115%</span>
+                    </div>
+                    <input type="range" id="magSlider" min="0.7" max="1.3" step="0.02" value="1.15">
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Dominio del Tiempo e Explicación Viva -->
+        <div class="card">
+            <h3>2. Ondas Sinusoidales e Explicación Didáctica PRO</h3>
+            <canvas id="timeCanvas"></canvas>
+
+            <div class="metrics-bar">
+                <div class="metric-card" style="border-color: var(--p-color)">
+                    <small style="color: var(--p-color)">POTENCIA ACTIVA (P)</small>
+                    <div class="metric-val" id="valP" style="color: var(--p-color)">+3.9 kW</div>
+                </div>
+                <div class="metric-card" style="border-color: var(--q-color)">
+                    <small style="color: var(--q-color)">POTENCIA REACTIVA (Q)</small>
+                    <div class="metric-val" id="valQ" style="color: var(--q-color)">+0.8 kVAR</div>
+                </div>
+            </div>
+
+            <!-- Leyenda Dinámica que cambia en Tiempo Real -->
+            <div class="live-explanation">
+                <div class="exp-box exp-p" id="liveP">Cargando análisis de P...</div>
+                <div class="exp-box exp-q" id="liveQ">Cargando análisis de Q...</div>
+                <div class="exp-box exp-summary" id="liveSummary">Cargando resumen pedagógico...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const vCanvas = document.getElementById('vectorCanvas');
+    const vCtx = vCanvas.getContext('2d');
+    const tCanvas = document.getElementById('timeCanvas');
+    const tCtx = tCanvas.getContext('2d');
+
+    const deltaSlider = document.getElementById('deltaSlider');
+    const magSlider = document.getElementById('magSlider');
+    const deltaVal = document.getElementById('deltaVal');
+    const magVal = document.getElementById('magVal');
+
+    const valP = document.getElementById('valP');
+    const valQ = document.getElementById('valQ');
+
+    const liveP = document.getElementById('liveP');
+    const liveQ = document.getElementById('liveQ');
+    const liveSummary = document.getElementById('liveSummary');
+
+    let omegaTime = 0;
+    const omegaSpeed = 0.03;
+
+    function resizeCanvas() {
+        vCanvas.width = vCanvas.offsetWidth;
+        vCanvas.height = vCanvas.offsetHeight;
+        tCanvas.width = tCanvas.offsetWidth;
+        tCanvas.height = tCanvas.offsetHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function updateLiveText(deltaDeg, magInv, pKW, qKVAR) {
+        let textP = "";
+        let textQ = "";
+        let textSummary = "";
+
+        // 1. Diagnóstico de Potencia Activa (P)
+        if (deltaDeg > 0) {
+            textP = `🔥 <b>Potencia Activa (P > 0):</b> El vector del inversor está <b>ADELANTADO ${deltaDeg}°</b> respecto a la red. El inversor está empujando corriente e inyectando <b>${pKW} kW</b> de energía solar hacia la red.`;
+        } else if (deltaDeg < 0) {
+            textP = `🔋 <b>Potencia Activa (P < 0):</b> El vector del inversor está <b>ATRASADO ${Math.abs(deltaDeg)}°</b>. El inversor está consumiendo <b>${Math.abs(pKW)} kW</b> de la red eléctrica (funciona como carga o cargador de batería).`;
+        } else {
+            textP = `⚖️ <b>Potencia Activa (P = 0 kW):</b> Fase alineada a <b>0°</b>. No hay transferencia de Vatios útiles con la red.`;
+        }
+
+        // 2. Diagnóstico de Potencia Reactiva (Q)
+        const magPercent = Math.round(magInv * 100);
+        if (magPercent > 100) {
+            textQ = `⚡ <b>Potencia Reactiva (Q > 0):</b> Amplitud del inversor (<b>${magPercent}%</b>) mayor que la red (100%). Inyecta <b>${qKVAR} kVAR</b> reactivos, lo que ayuda a elevar la tensión en el punto de conexión.`;
+        } else if (magPercent < 100) {
+            textQ = `🧲 <b>Potencia Reactiva (Q < 0):</b> Amplitud del inversor (<b>${magPercent}%</b>) menor que la red (100%). Absorbe <b>${Math.abs(qKVAR)} kVAR</b> reactivos, ayudando a mitigar sobretensiones en la red.`;
+        } else {
+            textQ = `🎯 <b>Potencia Reactiva (Q = 0 kVAR):</b> Tensiones en perfecta igualdad (100%). Factor de potencia unitario (cos φ = 1.0). Máxima eficiencia.`;
+        }
+
+        // 3. Resumen Pedagógico Integrado
+        if (deltaDeg > 0 && magPercent > 100) {
+            textSummary = "💡 <b>Escenario Solar de Mediodía:</b> Los paneles generan energía activa (kW) mientras el inversor aporta soporte reactivo (kVAR) para estabilizar el voltaje del vecindario.";
+        } else if (deltaDeg > 0 && magPercent === 100) {
+            textSummary = "💡 <b>Inyección Pura a Factor de Potencia Unitario:</b> Inyección exclusiva de energía útil (kW) sin intercambio de potencia reactiva.";
+        } else if (deltaDeg > 0 && magPercent < 100) {
+            textSummary = "💡 <b>Inyección con Mitigación de Voltaje:</b> Se entrega energía a los consumos pero se absorbe reactiva para frenar un pico de sobretensión en la línea.";
+        } else if (deltaDeg === 0 && magPercent === 100) {
+            textSummary = "💡 <b>Enganche PLL Flotante:</b> Sincronización perfecta en frecuencia, fase y amplitud. El inversor está conectado sin entregar ni consumir potencia.";
+        } else {
+            textSummary = "💡 <b>Modo de Regulación Dinámica:</b> Ajuste acoplado de vectores según las demandas del algoritmo de control de red.";
+        }
+
+        liveP.innerHTML = textP;
+        liveQ.innerHTML = textQ;
+        liveSummary.innerHTML = textSummary;
+    }
+
+    function render() {
+        const deltaDeg = parseFloat(deltaSlider.value);
+        const deltaRad = (deltaDeg * Math.PI) / 180;
+        const magInv = parseFloat(magSlider.value);
+
+        deltaVal.textContent = (deltaDeg >= 0 ? "+" : "") + deltaDeg + "°";
+        magVal.textContent = Math.round(magInv * 100) + "%";
+
+        // Física simplificada de P y Q
+        const pKW = (magInv * Math.sin(deltaRad) * 10).toFixed(1);
+        const qKVAR = ((magInv * Math.cos(deltaRad) - 1.0) * 10).toFixed(1);
+
+        valP.textContent = (pKW >= 0 ? "+" : "") + pKW + " kW";
+        valQ.textContent = (qKVAR >= 0 ? "+" : "") + qKVAR + " kVAR";
+
+        updateLiveText(deltaDeg, magInv, pKW, qKVAR);
+
+        // --- DIBUJAR VECTORES GIRATORIOS ---
+        vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
+        const cX = vCanvas.width / 2;
+        const cY = vCanvas.height / 2;
+        const baseRadius = Math.min(cX, cY) * 0.62;
+
+        // Ejes ortogonales (d-q)
+        vCtx.strokeStyle = '#1e293b';
+        vCtx.lineWidth = 1;
+        vCtx.beginPath();
+        vCtx.moveTo(cX - baseRadius * 1.2, cY); vCtx.lineTo(cX + baseRadius * 1.2, cY);
+        vCtx.moveTo(cX, cY - baseRadius * 1.2); vCtx.lineTo(cX, cY + baseRadius * 1.2);
+        vCtx.stroke();
+
+        const angleGrid = omegaTime;
+        const angleInv = omegaTime + deltaRad;
+
+        // Vector Red (Azul)
+        const gridX = cX + baseRadius * Math.cos(angleGrid);
+        const gridY = cY - baseRadius * Math.sin(angleGrid);
+        drawArrow(vCtx, cX, cY, gridX, gridY, '#0284c7', 3);
+
+        // Vector Inversor (Rojo)
+        const invX = cX + (baseRadius * magInv) * Math.cos(angleInv);
+        const invY = cY - (baseRadius * magInv) * Math.sin(angleInv);
+        drawArrow(vCtx, cX, cY, invX, invY, '#e11d48', 3);
+
+        // Arco de Ángulo delta
+        if (Math.abs(deltaDeg) > 0.5) {
+            vCtx.strokeStyle = '#22c55e';
+            vCtx.lineWidth = 2;
+            vCtx.beginPath();
+            vCtx.arc(cX, cY, baseRadius * 0.38, -angleInv, -angleGrid, deltaDeg < 0);
+            vCtx.stroke();
+        }
+
+        // --- DIBUJAR ONDAS EN EL TIEMPO ---
+        tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height);
+        const tW = tCanvas.width;
+        const tH = tCanvas.height;
+        const centerY = tH / 2;
+        const ampBase = tH / 3.2;
+
+        tCtx.strokeStyle = '#1e293b';
+        tCtx.beginPath();
+        tCtx.moveTo(0, centerY); tCtx.lineTo(tW, centerY);
+        tCtx.stroke();
+
+        // Onda Red
+        tCtx.strokeStyle = '#0284c7';
+        tCtx.lineWidth = 2.5;
+        tCtx.beginPath();
+        for (let x = 0; x < tW; x++) {
+            const t = omegaTime - (x * 0.02);
+            const y = centerY - Math.sin(t) * ampBase;
+            if (x === 0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
+        }
+        tCtx.stroke();
+
+        // Onda Inversor
+        tCtx.strokeStyle = '#e11d48';
+        tCtx.lineWidth = 2.5;
+        tCtx.beginPath();
+        for (let x = 0; x < tW; x++) {
+            const t = omegaTime - (x * 0.02) + deltaRad;
+            const y = centerY - Math.sin(t) * ampBase * magInv;
+            if (x === 0) tCtx.moveTo(x, y); else tCtx.lineTo(x, y);
+        }
+        tCtx.stroke();
+
+        omegaTime += omegaSpeed;
+        requestAnimationFrame(render);
+    }
+
+    function drawArrow(ctx, fromX, fromY, toX, toY, color, width) {
+        const headLen = 10;
+        const angle = Math.atan2(toY - fromY, toX - fromX);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = width;
+
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    render();
+</script>
+
+</body>
+</html>
